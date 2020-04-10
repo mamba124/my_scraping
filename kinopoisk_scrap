@@ -3,75 +3,68 @@ import urllib3
 import pandas as pd # Импортируем библиотеку обработки и анализа данных pandas
 import numpy as np  # Импортируем библиотеку numpy
 
-
-!apt install chromium-chromedriver  # Установка движка для хрома (для google colab)
-!pip install selenium               # Установка библиотеки Selenium
-!apt-get update --fix-missing
-!apt install chromium-chromedriver  # Установка движка для хрома (для google colab)
-
-# После установки нажмите Restart runtime
+!pip install selenium               
 
 urls = ["https://www.kinopoisk.ru/film/88"+str(i) for i in range(3)] # Генерируем ссылки для кинопоиска
 
-# Достать со страницы текст поста
 def get_ratio(web_page):
-  ratio = wd.find_elements_by_xpath("//span[@class='rating_ball']")   # По этому тэгу вытаскиваем данные о рейтинге
-  ratio = [x.text for x in ratio]                                     # Из объекта Selenium извлекаем интерпретируемое содержимое
-  return ratio[0]                                                     # Из списка нам нужна только цифра, так что берем первый элемент
+  ratio = wd.find_elements_by_xpath("//span[@class='rating_ball']")   
+  ratio = [x.text for x in ratio]                                     
+  return ratio[0]                                                     
 
 def get_name(wd):
-  t = wd.find_elements_by_xpath("//div[@class='name']")               # По этому тэгу вытаскиваем данные о названии
-  titles = [x.text.replace('\n',';') for x in t]                      # Из объекта Selenium извлекаем интерпретируемое содержимое
-                                                                      # При этом заменяем переход на новую строку ;
-  titles = titles[0].split(';')                                       # Отделяем название на русском от названия на английском
-  name = titles[0]                                                    # Берем название на русском
+  t = wd.find_elements_by_xpath("//div[@class='name']")               
+  titles = [x.text.replace('\n',';') for x in t]                     
+                                                                     
+  titles = titles[0].split(';')                                      
+  name = titles[0]                                                   
   return name 
 
 def get_year_moto(web_page):
-  t = wd.find_elements_by_xpath("//table[@class='info']")            # По этому тэгу вытаскиваем данные о названии 
-  titles = [x.text.replace('\n',' ') for x in t]                     # Из объекта Selenium извлекаем интерпретируемое содержимое
-                                                                     # Заменяем переход на пробел
-  titles = titles[0].split(',')                                      # Теперь все разделяем на запятые
-  year = int(re.findall('[0-9]+',titles[0])[0])                      # Находим слово, состоящее из цифр
-  moto = find_moto(titles)                                           # Вытаскиваем слоган
+  t = wd.find_elements_by_xpath("//table[@class='info']")           
+  titles = [x.text.replace('\n',' ') for x in t]                    
+                                                                    
+  titles = titles[0].split(',')                                     
+  year = int(re.findall('[0-9]+',titles[0])[0])                     
+  moto = find_moto(titles)                                          
 
   return year, moto
 
 def get_description(wd):
-  scrapped = wd.find_elements_by_xpath("//div[@class='brand_words film-synopsys']")                   # По этому тэгу вытаскиваем данные об описании
-  description = [x.text for x in scrapped]                                                            # Из объекта Selenium извлекаем интерпретируемое содержимое
+  scrapped = wd.find_elements_by_xpath("//div[@class='brand_words film-synopsys']")                  
+  description = [x.text for x in scrapped]                                                          
   return description                                                                                   
 
 def find_moto(titles):
   
-  for i in range(len(titles)-1):                                     # Проходимся по всей строке с кучей прочей информации
-      if 'слоган' in titles[i]:                                      # Строка со слоганом начинается на слово слоган
-          moto = titles[i].split('«')[1][:-1]                        # Отделяем слоган с помощью разделения строки по « и берем второе слово (слоган) без последнего символа (закрывающая ковычка)
-          break                                                      # Прерываем цикл
+  for i in range(len(titles)-1):                                   
+      if 'слоган' in titles[i]:                                    
+          moto = titles[i].split('«')[1][:-1]                      
+          break                                                    
       else:
-          moto = '-'                                                 # Если слогана не обнаружилось, то ставим -
+          moto = '-'                                               
           
   return moto
 
 
 # Объединить всю информацию в удобный вид
 def get_information(url):
-  result = []                                                       # Здесь будет лежать результат
+  result = []                                                       
 
-  timeout = 20                                                      # Дадим время на загрузку
+  timeout = 20                                                     
   try:
     WebDriverWait(wd, timeout)                                      
   except TimeoutException:
     print("Превышено время ожидания")
-    wd.quit()                                                       # Завершаем работу движка
+    wd.quit()                                                      
 
-  wd.get(url)                                                       # Открываем ссылку
-  result.append(get_name(wd))                                       # Получаем имя 
-  year, moto = get_year_moto(wd)                                    # Вытаскиваем год и слоган
-  result.append(year)                                               # Получаем год
-  result.append(moto)                                               # Получаем слоган
-  result.append(get_description(wd))                                # Получаем описание
-  result.append(get_ratio(wd))                                      # Получаем рейтинг
+  wd.get(url)                                                      
+  result.append(get_name(wd))                                      
+  year, moto = get_year_moto(wd)                                   
+  result.append(year)                                              
+  result.append(moto)                                              
+  result.append(get_description(wd))                               
+  result.append(get_ratio(wd))                                     
 
   
   return result
