@@ -1,0 +1,100 @@
+import re
+import urllib3
+import pandas as pd # Импортируем библиотеку обработки и анализа данных pandas
+import numpy as np  # Импортируем библиотеку numpy
+
+
+!apt install chromium-chromedriver  # Установка движка для хрома (для google colab)
+!pip install selenium               # Установка библиотеки Selenium
+!apt-get update --fix-missing
+!apt install chromium-chromedriver  # Установка движка для хрома (для google colab)
+
+# После установки нажмите Restart runtime
+
+urls = ["https://www.kinopoisk.ru/film/88"+str(i) for i in range(3)] # Генерируем ссылки для кинопоиска
+
+# Достать со страницы текст поста
+def get_ratio(web_page):
+  ratio = wd.find_elements_by_xpath("//span[@class='rating_ball']")   # По этому тэгу вытаскиваем данные о рейтинге
+  ratio = [x.text for x in ratio]                                     # Из объекта Selenium извлекаем интерпретируемое содержимое
+  return ratio[0]                                                     # Из списка нам нужна только цифра, так что берем первый элемент
+
+def get_name(wd):
+  t = wd.find_elements_by_xpath("//div[@class='name']")               # По этому тэгу вытаскиваем данные о названии
+  titles = [x.text.replace('\n',';') for x in t]                      # Из объекта Selenium извлекаем интерпретируемое содержимое
+                                                                      # При этом заменяем переход на новую строку ;
+  titles = titles[0].split(';')                                       # Отделяем название на русском от названия на английском
+  name = titles[0]                                                    # Берем название на русском
+  return name 
+
+def get_year_moto(web_page):
+  t = wd.find_elements_by_xpath("//table[@class='info']")            # По этому тэгу вытаскиваем данные о названии 
+  titles = [x.text.replace('\n',' ') for x in t]                     # Из объекта Selenium извлекаем интерпретируемое содержимое
+                                                                     # Заменяем переход на пробел
+  titles = titles[0].split(',')                                      # Теперь все разделяем на запятые
+  year = int(re.findall('[0-9]+',titles[0])[0])                      # Находим слово, состоящее из цифр
+  moto = find_moto(titles)                                           # Вытаскиваем слоган
+
+  return year, moto
+
+def get_description(wd):
+  scrapped = wd.find_elements_by_xpath("//div[@class='brand_words film-synopsys']")                   # По этому тэгу вытаскиваем данные об описании
+  description = [x.text for x in scrapped]                                                            # Из объекта Selenium извлекаем интерпретируемое содержимое
+  return description                                                                                   
+
+def find_moto(titles):
+  
+  for i in range(len(titles)-1):                                     # Проходимся по всей строке с кучей прочей информации
+      if 'слоган' in titles[i]:                                      # Строка со слоганом начинается на слово слоган
+          moto = titles[i].split('«')[1][:-1]                        # Отделяем слоган с помощью разделения строки по « и берем второе слово (слоган) без последнего символа (закрывающая ковычка)
+          break                                                      # Прерываем цикл
+      else:
+          moto = '-'                                                 # Если слогана не обнаружилось, то ставим -
+          
+  return moto
+
+
+# Объединить всю информацию в удобный вид
+def get_information(url):
+  result = []                                                       # Здесь будет лежать результат
+
+  timeout = 20                                                      # Дадим время на загрузку
+  try:
+    WebDriverWait(wd, timeout)                                      
+  except TimeoutException:
+    print("Превышено время ожидания")
+    wd.quit()                                                       # Завершаем работу движка
+
+  wd.get(url)                                                       # Открываем ссылку
+  result.append(get_name(wd))                                       # Получаем имя 
+  year, moto = get_year_moto(wd)                                    # Вытаскиваем год и слоган
+  result.append(year)                                               # Получаем год
+  result.append(moto)                                               # Получаем слоган
+  result.append(get_description(wd))                                # Получаем описание
+  result.append(get_ratio(wd))                                      # Получаем рейтинг
+
+  
+  return result
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+
+options = webdriver.ChromeOptions()
+options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+wd = webdriver.Chrome('chromedriver',options=options)
+
+print(wd.page_source)  # Посмотрим, как все открывается
+
+# Пробегаемся по всем ссылкам
+scraped_data = [get_information(url) for url in urls]           
+# Преобразуем в массив
+movie_array = np.array(scraped_data)
+# Преобразуем в датафрейм
+movie_frame = pd.DataFrame({"Название":[item[0] for item in movie_array],
+                            "Год выхода":[item[1] for item in movie_array],
+                            "Слоган":[item[2] for item in movie_array],
+                            "Описание":[item[3] for item in movie_array]
+                            })
